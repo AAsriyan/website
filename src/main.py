@@ -6,8 +6,9 @@ from title_extractor import extract_title
 import re
 import os
 import shutil
+import sys
 
-def copy_static_to_public(src_path="static", dest_path="public"):
+def copy_static_to_public(src_path="static", dest_path="docs"):
     """
     Recursively copies all contents from source directory to destination directory.
     First deletes all contents of the destination directory to ensure a clean copy.
@@ -51,7 +52,7 @@ def _copy_directory_contents(src_dir, dest_dir):
             os.mkdir(dest_item_path)
             _copy_directory_contents(src_item_path, dest_item_path)
 
-def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path, basepath="/"):
     """
     Recursively generate HTML pages from all markdown files in a directory structure.
     
@@ -59,6 +60,7 @@ def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
         dir_path_content: Path to the content directory to crawl
         template_path: Path to the HTML template file
         dest_dir_path: Path to the destination directory where HTML files should be written
+        basepath: Base path for the site (e.g., "/" or "/blog/")
     """
     # Import here to avoid circular imports
     from markdown_html import markdown_to_html_node
@@ -81,19 +83,31 @@ def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
                 dest_file_path = os.path.join(dest_dir_path, html_filename)
                 
                 # Generate the page
-                generate_page(item_path, template_path, dest_file_path)
+                generate_page(item_path, template_path, dest_file_path, basepath)
         
         elif os.path.isdir(item_path):
             # It's a directory, create corresponding directory in destination and recurse
             dest_subdir_path = os.path.join(dest_dir_path, item)
-            generate_pages_recursive(item_path, template_path, dest_subdir_path)
+            generate_pages_recursive(item_path, template_path, dest_subdir_path, basepath)
 
 def main():
-  # Delete anything in the public directory and copy static files
+  # Get basepath from command line arguments, default to "/"
+  basepath = "/"
+  if len(sys.argv) > 1:
+    basepath = sys.argv[1]
+    # Ensure basepath starts and ends with "/"
+    if not basepath.startswith("/"):
+      basepath = "/" + basepath
+    if not basepath.endswith("/"):
+      basepath = basepath + "/"
+  
+  print(f"Using basepath: {basepath}")
+  
+  # Delete anything in the docs directory and copy static files
   copy_static_to_public()
   
   # Generate pages recursively from all markdown files in content directory
-  generate_pages_recursive("content", "template.html", "public")
+  generate_pages_recursive("content", "template.html", "docs", basepath)
   
   print("Site generation complete!")
 
@@ -139,7 +153,7 @@ def block_to_block_type(block: str) -> BlockType:
   else:
     return BlockType.PARAGRAPH
   
-def generate_page(from_path: str, template_path: str, dest_path: str):
+def generate_page(from_path: str, template_path: str, dest_path: str, basepath: str = "/"):
     """
     Generate an HTML page from a markdown file using a template.
     
@@ -147,6 +161,7 @@ def generate_page(from_path: str, template_path: str, dest_path: str):
         from_path: Path to the source markdown file
         template_path: Path to the HTML template file
         dest_path: Path where the generated HTML file should be written
+        basepath: Base path for the site (e.g., "/" or "/blog/")
     """
     # Import here to avoid circular imports
     from markdown_html import markdown_to_html_node
@@ -171,6 +186,10 @@ def generate_page(from_path: str, template_path: str, dest_path: str):
     # Replace placeholders in template
     final_html = template_content.replace("{{ Title }}", title)
     final_html = final_html.replace("{{ Content }}", html_content)
+    
+    # Replace base path references
+    final_html = final_html.replace('href="/', f'href="{basepath}')
+    final_html = final_html.replace('src="/', f'src="{basepath}')
     
     # Create destination directory if it doesn't exist
     dest_dir = os.path.dirname(dest_path)
