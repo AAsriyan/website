@@ -1,4 +1,4 @@
-from src.htmlnode import HTMLNode
+from htmlnode import HTMLNode
 
 class LeafNode(HTMLNode):
   def __init__(self, tag: str, value: str, props: dict = None):
@@ -16,9 +16,13 @@ class LeafNode(HTMLNode):
     
     props_str = ""
     for key, value in self.props.items():
-      props_str += f'{key}="{value}"'
+      props_str += f' {key}="{value}"'
     
-    return f"<{self.tag} {props_str.strip()}>{self.value}</{self.tag}>"
+    # Handle self-closing tags like img
+    if self.tag == "img":
+      return f"<{self.tag}{props_str}>"
+    
+    return f"<{self.tag}{props_str}>{self.value}</{self.tag}>"
   
   def __repr__(self):
     return f"LeafNode({self.tag}, {self.value}, {self.props})"
